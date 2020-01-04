@@ -1,0 +1,37 @@
+{
+  "name": "ig-discord-bridge",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "format": "prettier --write \"src/**/*.ts\"",
+    "build": ""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bluebird": "^3.7.2",
+    "discord.js": "^11.5.1",
+    "fluent-ffmpeg": "^2.1.2",
+    "instagram-private-api": "^1.37.1",
+    "instagram_mqtt": "^0.1.14",
+    "jimp": "^0.9.3",
+    "lodash": "^4.17.15",
+    "luxon": "^1.21.3",
+    "node-emoji": "^1.10.0"
+  },
+  "devDependencies": {
+    "@types/bluebird": "^3.5.29",
+    "@types/fluent-ffmpeg": "^2.1.13",
+    "@types/jimp": "^0.2.28",
+    "@types/lodash": "^4.14.149",
+    "@types/luxon": "^1.21.0",
+    "@types/node": "^13.1.2",
+    "@types/node-emoji": "^1.8.1",
+    "dotenv": "^8.2.0",
+    "prettier": "^1.19.1",
+    "tslint": "^5.20.1",
+    "typescript": "^3.7.4"
+  }
+}

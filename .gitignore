@@ -1,0 +1,8 @@
+sessions/
+node_modules/
+dist/
+data/
+.idea
+.env
+_cache
+.code
