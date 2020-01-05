@@ -63,6 +63,8 @@ export async function createDirectoriesFromTree(tree: Tree, baseUrl: string): Pr
     }
 }
 
+export const getRemainingStringLength = (src: string, search: string) => src.toLowerCase().replace(search, '').length;
+
 function mkdir(dir: PathLike): Promise<void> {
     if (!existsSync(dir)) {
         return promises.mkdir(dir);

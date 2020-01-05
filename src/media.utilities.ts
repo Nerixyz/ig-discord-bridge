@@ -37,10 +37,12 @@ async function sendImage(thread: DirectThreadEntity, imageUrl: string) {
 
 async function sendVideo(thread: DirectThreadEntity, videoUrl: string) {
     const filePath = path.join('_cache', 'img', 'video', `${hashString(videoUrl)}.mp4`);
-    await executeFfmpegComand(ffmpeg(videoUrl)
-        .videoCodec('libx264')
-        .audioCodec('aac')
-        .saveToFile(filePath));
+    await executeFfmpegComand(
+        ffmpeg(videoUrl)
+            .videoCodec('libx264')
+            .audioCodec('aac')
+            .saveToFile(filePath),
+    );
     await thread.broadcastVideo({
         video: await promises.readFile(filePath),
     });

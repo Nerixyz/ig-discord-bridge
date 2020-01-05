@@ -18,16 +18,9 @@ import {
     ParsedArguments,
 } from './types';
 import { Client, Guild, Message, MessageCollector, RichEmbed, Snowflake, TextChannel } from 'discord.js';
-import {  IgApiClient } from 'instagram-private-api';
+import { IgApiClient } from 'instagram-private-api';
 import { DateTime } from 'luxon';
 import Bluebird from 'bluebird';
-import {
-    createArguments,
-    createCommand,
-    getTextChannel,
-    instagramLogin,
-    parseArgumentsToObject,
-} from '../dist/utilities';
 import {
     exhaustFeedUntil,
     generateColorForUser,
@@ -37,10 +30,19 @@ import {
     writeData,
 } from './data.utilities';
 import { sendAttachment, sendEmbed } from './media.utilities';
+import { ThreadRegister } from './ThreadRegister';
+import {
+    createArguments,
+    createCommand,
+    getTextChannel,
+    instagramLogin,
+    parseArgumentsToObject,
+} from './discord.utilities';
 
 export class IgMessageBot {
     public ig: IgApiClientRealtime;
     public userRegister: UserRegister;
+    public threadRegister: ThreadRegister;
     public client: Client;
 
     public initOptions: MessageBotInitOptions;
@@ -53,10 +55,12 @@ export class IgMessageBot {
         this.initOptions = initOptions;
         this.ig = withRealtime(new IgApiClient());
         this.userRegister = new UserRegister(this.ig);
+        this.threadRegister = new ThreadRegister(this.ig);
         this.commandConfig = [
             createCommand('add', createArguments('query'), (a, b) => this.handleAddCommand(a, b)),
             createCommand(['recent', 'recents', 'inbox'], [], (a, b) => this.handleRecentCommand(a, b)),
             createCommand('delete', createArguments('query'), (a, b) => this.deleteChannel(a, b)),
+            createCommand('search', createArguments('query'), (a, b) => this.searchCommand(a, b)),
         ];
     }
 
@@ -79,6 +83,7 @@ export class IgMessageBot {
 
             await this.startRealtime();
             this.startListenerService();
+            await this.threadRegister.initialize();
         } catch (e) {
             if (!this.channelMapping || !this.channelMapping.callbackChannel) {
                 console.error(e);
@@ -101,6 +106,7 @@ export class IgMessageBot {
 
         try {
             await this.ig.user.info(this.ig.state.cookieUserId);
+            await this.ig.feed.directInbox().request();
             return false;
         } catch {
             return true;
@@ -179,14 +185,47 @@ export class IgMessageBot {
         return id ? getTextChannel(this.client, id) : undefined;
     }
 
-    protected handleMessageWithoutThread(message: MessageSyncMessage): void {
-        // TODO: impl.
+    protected async handleMessageWithoutThread(message: MessageSyncMessage): Promise<void> {
+        const {
+            thread: { thread_title },
+        } = await this.ig.feed.directThread({ thread_id: message.thread_id, oldest_cursor: undefined }).request();
+        const channel = (await this.mainGuild.createChannel(thread_title, {
+            type: 'text',
+            parent: this.channelMapping.igMessageCategory,
+        })) as TextChannel;
+        const threadData = message.thread_id;
+        this.channelMapping.directData.set(threadData, channel.id);
+        this.addListenerToThread(threadData, channel.id);
+        this.scheduleUpdateChannelMapping();
+        await this.sendMessageToChannel(message, channel);
     }
 
-    protected async sendMessageToChannel(
-        message: MessageSyncMessage,
-        channel: TextChannel,
-    ): Promise<any> {
+    protected async searchCommand({ query }, message: Message) {
+        const result = await this.threadRegister.getByNameSubset(query);
+        if (!result) {
+            await message.reply('No thread or user found');
+        }
+        await message.reply(
+            new RichEmbed({
+                fields: result.thread_id
+                    ? [
+                          { name: 'Thread Title', value: result.thread_title },
+                          {
+                              name: 'Members',
+                              value: result.users.length.toString(),
+                          },
+                      ]
+                    : [
+                          { name: 'Username', value: result.username },
+                          { name: 'Full Name', value: result.full_name },
+                      ],
+            })
+                .setTitle(query)
+                .setColor('#0fff0f'),
+        );
+    }
+
+    protected async sendMessageToChannel(message: MessageSyncMessage, channel: TextChannel): Promise<any> {
         const author = await this.userRegister.getById(message.user_id);
         const baseEmbed = new RichEmbed()
             .setAuthor(author.username, author.profile_pic_url)
@@ -197,7 +236,7 @@ export class IgMessageBot {
                 return channel.send(message.voice_media.media.audio.audio_src);
             }
             case 'text':
-                return channel.sendEmbed(baseEmbed.setDescription(message.text));
+                return channel.send(baseEmbed.setDescription(message.text));
             case 'raven_media':
                 message.media = message.visual_media.media;
             case 'media': {
@@ -214,12 +253,14 @@ export class IgMessageBot {
                             ),
                     );
                 } else if ('media' in message && message.media.media_type === IgMediaTypes.Video) {
-                    // @ts-ignore
-                    return channel.send(message.media.video_versions.reduce(
-                        (previousValue, currentValue) =>
-                            previousValue.width > currentValue.width ? previousValue : currentValue,
-                        { width: -1, url: '' },
-                    ).url);
+                    return channel.send(
+                        // @ts-ignore
+                        message.media.video_versions.reduce(
+                            (previousValue, currentValue) =>
+                                previousValue.width > currentValue.width ? previousValue : currentValue,
+                            { width: -1, url: '' },
+                        ).url,
+                    );
                 }
             }
             default: {
@@ -298,18 +339,15 @@ export class IgMessageBot {
     }
 
     protected async handleAddCommand({ query }: ParsedArguments, message: Message) {
-        const recipients = await this.ig.direct.rankedRecipients('raven', query);
-        const found: any = recipients.ranked_recipients.find(r =>
-            r.thread ? r.thread.thread_title === query : r.user.username === query,
-        ) ?? { user: await this.userRegister.getByName(query) };
+        const found = await this.threadRegister.getByName(query);
 
         if (!found) throw new Error('User or thread not found');
 
-        const channel = (await this.mainGuild.createChannel(
-            found.thread ? found.thread.thread_title : found.user.username,
-            { type: 'text', parent: this.channelMapping.igMessageCategory },
-        )) as TextChannel;
-        const threadData = found.thread ? found.thread.thread_id : [found.user.pk];
+        const channel = (await this.mainGuild.createChannel(found.thread_id ? found.thread_title : found.username, {
+            type: 'text',
+            parent: this.channelMapping.igMessageCategory,
+        })) as TextChannel;
+        const threadData = found.thread_id ? found.thread_id : [found.pk];
         this.channelMapping.directData.set(threadData, channel.id);
         this.addListenerToThread(threadData, channel.id);
         await message.reply(`created channel for ${channel.name}`);
@@ -326,8 +364,7 @@ export class IgMessageBot {
                     break;
                 }
                 // tslint:disable-next-line:no-empty
-            } catch {
-            }
+            } catch {}
         }
         if (found) {
             await getTextChannel(this.client, found[1]).delete();

@@ -15,11 +15,15 @@ import {
     IgLoginTwoFactorRequiredError,
 } from 'instagram-private-api';
 import {
-    CommandArgument, CommandCallback, CommandConfig,
+    CommandArgument,
+    CommandCallback,
+    CommandConfig,
     DiscordChannelMapping,
     MessageBotInitOptions,
     InstagramLoginResult,
-    MultipleChoiceOptions, ParsedArguments, TextInputOptions,
+    MultipleChoiceOptions,
+    ParsedArguments,
+    TextInputOptions,
     TwoFactorMode,
 } from './types';
 import Bluebird from 'bluebird';
@@ -109,9 +113,9 @@ export function getTextChannel(discord: Client, id: string): TextChannel | undef
 }
 
 function getMode({
-                     totp_two_factor_on,
-                     sms_two_factor_on,
-                 }: AccountRepositoryLoginErrorResponseTwoFactorInfo): TwoFactorMode {
+    totp_two_factor_on,
+    sms_two_factor_on,
+}: AccountRepositoryLoginErrorResponseTwoFactorInfo): TwoFactorMode {
     if (totp_two_factor_on && sms_two_factor_on) return TwoFactorMode.MULTIPLE;
     if (totp_two_factor_on) return TwoFactorMode.TOTP;
     if (sms_two_factor_on) return TwoFactorMode.SMS;
@@ -144,14 +148,14 @@ export async function multipleChoice({ options, channel, title, message }: Multi
 }
 
 export async function textInput({
-                                    channel,
-                                    title,
-                                    message,
-                                    userValidation,
-                                    inputValidation,
-                                    prefix,
-                                    timeout,
-                                }: TextInputOptions): Promise<string> {
+    channel,
+    title,
+    message,
+    userValidation,
+    inputValidation,
+    prefix,
+    timeout,
+}: TextInputOptions): Promise<string> {
     userValidation = userValidation ?? (() => true);
     inputValidation = inputValidation ?? (() => true);
     prefix = prefix ?? '';
