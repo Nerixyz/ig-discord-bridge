@@ -1,10 +1,11 @@
 import crypto from 'crypto';
-import { DataKey, Tree } from './types';
+import { DataKey, Tree } from '../types';
 import { existsSync, PathLike, promises } from 'fs';
 import { Feed } from 'instagram-private-api';
-import { BigInteger } from 'instagram_mqtt/dist/shared';
 import { Chance } from 'chance';
 import { join } from 'path';
+import { BigInteger } from 'instagram_mqtt/dist/shared';
+import * as request from 'request-promise';
 
 export const hashString = (name: string): string =>
     crypto
@@ -69,4 +70,28 @@ function mkdir(dir: PathLike): Promise<void> {
     if (!existsSync(dir)) {
         return promises.mkdir(dir);
     }
+}
+
+export const getBestResMedia = (medias: Array<{width: number, url: string}>): { width: number, url: string } => medias.reduce(
+    (previousValue, currentValue) =>
+        previousValue.width > currentValue.width ? previousValue : currentValue,
+    { width: -1, url: '' });
+
+export async function downloadFile(url: string, path: string): Promise<string> {
+    const buffer = await downloadToBuffer(url);
+    await promises.writeFile(path, buffer);
+    return path;
+}
+
+export async function downloadToBuffer(url: string): Promise<Buffer> {
+    return request.get(url, { encoding: null });
+}
+
+export const deleteAll = async (folder: string, identifier: string) =>
+    Promise.all((await promises.readdir(folder)).filter(s => s.includes(identifier)).map(s => promises.unlink(join(folder, s))));
+
+export async function useFile<T>(path: string, callback: (path: string) => PromiseLike<T>): Promise<T> {
+    const result = await callback(path);
+    await promises.unlink(path);
+    return result;
 }

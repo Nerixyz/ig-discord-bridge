@@ -8,6 +8,8 @@ export interface MessageBotInitOptions {
     discordServerId: string;
     instagramUsername: string;
     instagramPassword: string;
+    streamableUsername: string;
+    streamablePassword: string;
 }
 
 export type Tree = string[] | Tree[] | { [x: string]: Tree };

@@ -25,7 +25,7 @@ import {
     ParsedArguments,
     TextInputOptions,
     TwoFactorMode,
-} from './types';
+} from '../types';
 import Bluebird from 'bluebird';
 import { Duration } from 'luxon';
 

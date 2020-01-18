@@ -11,7 +11,6 @@ import {
     CommandConfig,
     DiscordChannelMapping,
     MessageBotInitOptions,
-    IgMediaTypes,
     IgThreadId,
     IgUserId,
     InstagramLoginResult,
@@ -19,31 +18,30 @@ import {
 } from './types';
 import { Client, Guild, Message, MessageCollector, RichEmbed, Snowflake, TextChannel } from 'discord.js';
 import { IgApiClient } from 'instagram-private-api';
-import { DateTime } from 'luxon';
 import Bluebird from 'bluebird';
 import {
     exhaustFeedUntil,
-    generateColorForUser,
     hashString,
     prepareForJSON,
     readData,
     writeData,
-} from './data.utilities';
-import { sendAttachment, sendEmbed } from './media.utilities';
-import { ThreadRegister } from './ThreadRegister';
-import {
     createArguments,
     createCommand,
     getTextChannel,
     instagramLogin,
     parseArgumentsToObject,
-} from './discord.utilities';
+} from './utilities';
+import { ThreadRegister } from './ThreadRegister';
+import { DiscordHandler } from './DiscordHandler';
+import { InstagramHandler } from './InstagramHandler';
 
 export class IgMessageBot {
     public ig: IgApiClientRealtime;
     public userRegister: UserRegister;
     public threadRegister: ThreadRegister;
     public client: Client;
+    public discordHandler: DiscordHandler;
+    public instagramHandler: InstagramHandler;
 
     public initOptions: MessageBotInitOptions;
     public channelMapping: DiscordChannelMapping;
@@ -84,6 +82,8 @@ export class IgMessageBot {
             await this.startRealtime();
             this.startListenerService();
             await this.threadRegister.initialize();
+            this.instagramHandler = new InstagramHandler(this);
+            this.discordHandler = new DiscordHandler(this);
         } catch (e) {
             if (!this.channelMapping || !this.channelMapping.callbackChannel) {
                 console.error(e);
@@ -151,8 +151,10 @@ export class IgMessageBot {
                 return;
             }
             try {
-                await this.sendMessageToChannel(message, channel);
+                await this.discordHandler.sendMessageToChannel(message, channel);
+                await this.ig.realtime.direct.markAsSeen({threadId: message.thread_id, itemId: message.item_id});
             } catch (e) {
+                console.error(e);
                 await channel.sendCode(
                     'json',
                     JSON.stringify({
@@ -197,7 +199,7 @@ export class IgMessageBot {
         this.channelMapping.directData.set(threadData, channel.id);
         this.addListenerToThread(threadData, channel.id);
         this.scheduleUpdateChannelMapping();
-        await this.sendMessageToChannel(message, channel);
+        await this.discordHandler.sendMessageToChannel(message, channel);
     }
 
     protected async searchCommand({ query }, message: Message) {
@@ -223,50 +225,6 @@ export class IgMessageBot {
                 .setTitle(query)
                 .setColor('#0fff0f'),
         );
-    }
-
-    protected async sendMessageToChannel(message: MessageSyncMessage, channel: TextChannel): Promise<any> {
-        const author = await this.userRegister.getById(message.user_id);
-        const baseEmbed = new RichEmbed()
-            .setAuthor(author.username, author.profile_pic_url)
-            .setColor(generateColorForUser(message.user_id))
-            .setTimestamp(DateTime.fromMillis(Number(message.timestamp) / 1000).toJSDate());
-        switch (message.item_type) {
-            case 'voice_media': {
-                return channel.send(message.voice_media.media.audio.audio_src);
-            }
-            case 'text':
-                return channel.send(baseEmbed.setDescription(message.text));
-            case 'raven_media':
-                message.media = message.visual_media.media;
-            case 'media': {
-                if ('media' in message && message.media.media_type === IgMediaTypes.Photo) {
-                    return channel.send(
-                        baseEmbed
-                            .setDescription(message.text ?? '')
-                            .setImage(
-                                message.media.image_versions2.candidates.reduce(
-                                    (previousValue, currentValue) =>
-                                        previousValue.width > currentValue.width ? previousValue : currentValue,
-                                    { width: -1, url: '' },
-                                ).url,
-                            ),
-                    );
-                } else if ('media' in message && message.media.media_type === IgMediaTypes.Video) {
-                    return channel.send(
-                        // @ts-ignore
-                        message.media.video_versions.reduce(
-                            (previousValue, currentValue) =>
-                                previousValue.width > currentValue.width ? previousValue : currentValue,
-                            { width: -1, url: '' },
-                        ).url,
-                    );
-                }
-            }
-            default: {
-                return channel.sendCode('json', JSON.stringify(message, undefined, 2).substring(0, 1990));
-            }
-        }
     }
 
     protected startCommandService() {
@@ -312,30 +270,7 @@ export class IgMessageBot {
             getTextChannel(this.client, channelId),
             (msg: Message) => !msg.author.bot,
         );
-        collector.on('collect', async message => {
-            // @ts-ignore
-            const entity = this.ig.entity.directThread(threadData);
-            if (message.embeds.length > 0) {
-                for (const embed of message.embeds) {
-                    await sendEmbed(entity, embed);
-                }
-            } else if (message.attachments.size > 0) {
-                for (const attachment of message.attachments.array()) {
-                    await sendAttachment({ thread: entity, attachment });
-                }
-            }
-            if (message.content.length > 0) {
-                await entity.broadcastText(message.content);
-            }
-            if (typeof threadData === 'object' && entity.threadId) {
-                this.channelMapping.directData.set(entity.threadId, this.channelMapping.directData.get(threadData));
-                this.channelMapping.directData.delete(threadData);
-                threadData = entity.threadId;
-                this.scheduleUpdateChannelMapping();
-                console.log(`Updated to ${threadData}`);
-            }
-            await message.delete();
-        });
+        collector.on('collect', (message) => this.instagramHandler.sendDiscordMessage(message, threadData));
     }
 
     protected async handleAddCommand({ query }: ParsedArguments, message: Message) {

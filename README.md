@@ -12,6 +12,8 @@ IG_USERNAME=your instagram username
 IG_PASSWORD=your instagram password
 DISCORD_TOKEN=your discord bot token
 DISCORD_SERVER_ID=your discord server id (right click > copy id)
+STREAMABLE_USERNAME=[optional] streamable username
+STREAMABLE_PASSWORD=[optional] streamable password
 ```
 - Run the bot using `node .`
 

@@ -1,5 +1,5 @@
 import { IgApiClient } from 'instagram-private-api';
-import { getRemainingStringLength } from './data.utilities';
+import { getRemainingStringLength } from './utilities';
 import { DirectRepositoryRankedRecipientsResponseUser } from 'instagram-private-api/dist/responses/direct.repository.ranked-recipients.response';
 
 export class ThreadRegister {
