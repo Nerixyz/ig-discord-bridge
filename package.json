@@ -19,7 +19,7 @@
     "instagram_mqtt": "^0.1.14",
     "jimp": "^0.9.3",
     "lodash": "^4.17.15",
-    "luxon": "^1.21.3",
+    "luxon": "^1.22.0",
     "node-emoji": "^1.10.0",
     "streamable-js": "^0.1.1"
   },
