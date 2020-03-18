@@ -16,7 +16,7 @@
     "fluent-ffmpeg": "^2.1.2",
     "imgur": "^0.3.1",
     "instagram-private-api": "^1.37.1",
-    "instagram_mqtt": "^0.1.14",
+    "instagram_mqtt": "^0.2.8",
     "jimp": "^0.9.3",
     "lodash": "^4.17.15",
     "luxon": "^1.21.3",
