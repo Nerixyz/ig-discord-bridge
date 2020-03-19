@@ -25,7 +25,7 @@
   },
   "devDependencies": {
     "@types/bluebird": "^3.5.29",
-    "@types/fluent-ffmpeg": "^2.1.13",
+    "@types/fluent-ffmpeg": "^2.1.14",
     "@types/jimp": "^0.2.28",
     "@types/lodash": "^4.14.149",
     "@types/luxon": "^1.21.0",
