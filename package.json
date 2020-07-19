@@ -18,7 +18,7 @@
     "instagram-private-api": "^1.37.1",
     "instagram_mqtt": "^0.1.14",
     "jimp": "^0.9.3",
-    "lodash": "^4.17.15",
+    "lodash": "^4.17.19",
     "luxon": "^1.21.3",
     "node-emoji": "^1.10.0",
     "streamable-js": "^0.1.1"
