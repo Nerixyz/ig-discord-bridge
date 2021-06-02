@@ -12,7 +12,7 @@
   "license": "ISC",
   "dependencies": {
     "bluebird": "^3.7.2",
-    "discord.js": "^11.5.1",
+    "discord.js": "^12.5.3",
     "fluent-ffmpeg": "^2.1.2",
     "imgur": "^0.3.1",
     "instagram-private-api": "^1.37.1",
